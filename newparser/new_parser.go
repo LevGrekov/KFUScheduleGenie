@@ -45,16 +45,17 @@ func ParseSchedule(id int) (string, error) {
 func formatScheduleForTelegram(html string) (string, error) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
 	if err != nil {
-		return "", err
+		return "Ошибка блинс", err
 	}
 
 	var builder strings.Builder
 
 	// Извлекаем имя преподавателя (если есть)
 	name := doc.Find(".menu_header").Text()
-	if name != "" {
-		builder.WriteString(fmt.Sprintf("📅 %s\n\n", strings.TrimSpace(name)))
+	if name == "" {
+		return "расписание не найдено или недоступно", nil
 	}
+	builder.WriteString(fmt.Sprintf("📅 %s\n\n", strings.TrimSpace(name)))
 
 	doc.Find("div[style*='background-image']").Each(func(i int, dayDiv *goquery.Selection) {
 		day := strings.TrimSpace(dayDiv.Text())
