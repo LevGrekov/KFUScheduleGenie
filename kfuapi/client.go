@@ -45,13 +45,11 @@ func SearchEmployees(fio string) ([]Employee, error) {
 	encodedQuery := url.QueryEscape(fio)
 	apiUrl := fmt.Sprintf("https://auth.kpfu.tyuop.ru/api/v1/employees?q=%s", encodedQuery)
 
-	// Используем http.NewRequest для лучшего контроля
 	req, err := http.NewRequest(http.MethodGet, apiUrl, nil)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка создания запроса: %w", err)
 	}
 
-	// Добавляем User-Agent (многие API требуют)
 	req.Header.Set("User-Agent", "KPFU-Teacher-Search/1.0")
 
 	client := &http.Client{}
