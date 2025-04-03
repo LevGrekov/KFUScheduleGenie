@@ -11,5 +11,6 @@ require (
 require (
 	github.com/ConvertAPI/convertapi-go v0.0.0-20250305153512-db88d3c0905b // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
+	github.com/go-telegram/ui v0.5.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 )
