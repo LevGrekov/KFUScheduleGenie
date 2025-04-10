@@ -15,17 +15,17 @@ func ParseSchedule(id int) (string, error) {
 
 	resp, err := http.Get(url)
 	if err != nil {
-		fmt.Println("Ошибка при запросе:", err)
+		return "", fmt.Errorf("ошибка при запросе к серверу: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Println("Сервер вернул ошибку:", resp.Status)
+		return "", fmt.Errorf("сервер вернул ошибку: %s", resp.Status)
 	}
 
 	utf8Reader, err := charset.NewReader(resp.Body, resp.Header.Get("Content-Type"))
 	if err != nil {
-		fmt.Println("Ошибка кодировки UTF8")
+		return "", fmt.Errorf("не удалось обработать кодировку: %w", err)
 	}
 
 	html_schedule, err := io.ReadAll(utf8Reader)
@@ -50,7 +50,6 @@ func formatScheduleForTelegram(html string) (string, error) {
 
 	var builder strings.Builder
 
-	// Извлекаем имя преподавателя (если есть)
 	name := doc.Find(".menu_header").Text()
 	if name == "" {
 		return "расписание не найдено или недоступно", nil

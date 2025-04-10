@@ -35,7 +35,6 @@ func (e *Employee) GetFullName() string {
 	return fmt.Sprintf("%s %s %s", e.LastName, e.FirstName, e.MiddleName)
 }
 
-// Структура для ответа API
 type APIResponse struct {
 	Success   bool       `json:"success"`
 	Employees []Employee `json:"employees"`
@@ -50,8 +49,6 @@ func SearchEmployees(fio string) ([]Employee, error) {
 		return nil, fmt.Errorf("ошибка создания запроса: %w", err)
 	}
 
-	req.Header.Set("User-Agent", "KPFU-Teacher-Search/1.0")
-
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -63,7 +60,6 @@ func SearchEmployees(fio string) ([]Employee, error) {
 		return nil, fmt.Errorf("неожиданный статус: %d", resp.StatusCode)
 	}
 
-	// Используем io.ReadAll вместо ioutil.ReadAll
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("ошибка чтения ответа: %w", err)
