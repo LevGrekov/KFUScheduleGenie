@@ -33,7 +33,12 @@ func sendTeachersKeyboard(ctx context.Context, b *bot.Bot, chatID int64, teacher
 	})
 
 	if err != nil {
-		slog.Error("Ошибка при отправке клавиатуры: %v", err)
+		_, err := b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID:      chatID,
+			Text:        "Некоректные данные",
+			ReplyMarkup: kb,
+		})
+		slog.Error("Ошибка при отправке клавиатуры:", "error", err)
 	}
 }
 

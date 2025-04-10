@@ -5,77 +5,39 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 )
 
-type Employee struct {
-	ID         int    `json:"employee_id"`
-	LastName   string `json:"lastname"`
-	FirstName  string `json:"firstname"`
-	MiddleName string `json:"middlename"`
-	IsTeacher  bool   `json:"is_teacher"`
+const baseURL = "https://auth.kpfu.tyuop.ru/api/v1"
 
-	FullName string `json:"fullname,omitempty"`
+type Client struct {
+	HTTPClient *http.Client
 }
 
-func filterTeachers(employees []Employee) []Employee {
-	var teachers []Employee
-	for _, emp := range employees {
-		if emp.IsTeacher {
-			teachers = append(teachers, emp)
-		}
+func NewClient() *Client {
+	return &Client{
+		HTTPClient: &http.Client{},
 	}
-	return teachers
 }
 
-func (e *Employee) GetFullName() string {
-	if e.FullName != "" {
-		return e.FullName
-	}
-	return fmt.Sprintf("%s %s %s", e.LastName, e.FirstName, e.MiddleName)
-}
-
-type APIResponse struct {
-	Success   bool       `json:"success"`
-	Employees []Employee `json:"employees"`
-}
-
-func SearchEmployees(fio string) ([]Employee, error) {
-	encodedQuery := url.QueryEscape(fio)
-	apiUrl := fmt.Sprintf("https://auth.kpfu.tyuop.ru/api/v1/employees?q=%s", encodedQuery)
-
-	req, err := http.NewRequest(http.MethodGet, apiUrl, nil)
+func (c *Client) doRequest(req *http.Request, v any) error {
+	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка создания запроса: %w", err)
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("ошибка выполнения запроса: %w", err)
+		return fmt.Errorf("ошибка выполнения запроса: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("неожиданный статус: %d", resp.StatusCode)
+		return fmt.Errorf("неожиданный статус: %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка чтения ответа: %w", err)
+		return fmt.Errorf("ошибка чтения ответа: %w", err)
 	}
 
-	var apiResponse APIResponse
-	if err := json.Unmarshal(body, &apiResponse); err != nil {
-		return nil, fmt.Errorf("ошибка парсинга JSON: %w", err)
+	if err := json.Unmarshal(body, v); err != nil {
+		return fmt.Errorf("ошибка парсинга JSON: %w", err)
 	}
 
-	if !apiResponse.Success {
-		return nil, fmt.Errorf("запрос не удался")
-	}
-
-	teachers := filterTeachers(apiResponse.Employees)
-
-	return teachers, nil
-
+	return nil
 }
