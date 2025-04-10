@@ -43,8 +43,20 @@ func sendTeachersKeyboard(ctx context.Context, b *bot.Bot, chatID int64, teacher
 }
 
 func onInlineKeyboardSelect(ctx context.Context, b *bot.Bot, mes models.MaybeInaccessibleMessage, data []byte) {
+	msg, _ := b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID: mes.Message.Chat.ID,
+		Text:   "⌛ Обрабатываю запрос...",
+	})
+	defer func() {
+		b.DeleteMessage(ctx, &bot.DeleteMessageParams{
+			ChatID:    mes.Message.Chat.ID,
+			MessageID: msg.ID,
+		})
+	}()
+
 	teacherID := int(binary.LittleEndian.Uint64(data))
 	sendSchedule(teacherID, func(s string) { sendSafeMessage(ctx, b, mes.Message.Chat.ID, s) })
+
 }
 
 func onCancel(ctx context.Context, b *bot.Bot, mes models.MaybeInaccessibleMessage, data []byte) {

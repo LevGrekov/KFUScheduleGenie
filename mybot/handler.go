@@ -67,7 +67,7 @@ func executeTeacherSearchFlow(ctx context.Context, b *bot.Bot, update *models.Up
 func sendSchedule(teacherID int, onComplete func(string)) {
 	schedule, err := client.GetSchedule(teacherID)
 	if err != nil {
-		slog.Error("Ошибка ParseSchedule: %v", err)
+		slog.Error("Ошибка Получения Расписания", "error", err)
 		onComplete("Ошибка получения расписания")
 	}
 	onComplete(schedule)
