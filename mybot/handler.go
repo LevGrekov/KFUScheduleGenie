@@ -45,7 +45,7 @@ func executeTeacherSearchFlow(ctx context.Context, b *bot.Bot, update *models.Up
 	}
 	teachers, err := client.SearchEmployees(message_text)
 	if err != nil {
-		slog.Error("Ошибка SearchEmployees: %v", err)
+		slog.Error("Ошибка SearchEmployees", "error", err)
 		sendResult("Не получилось обратиться к серверу КФУ")
 		return
 	}

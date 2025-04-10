@@ -3,10 +3,10 @@ package kfuapi
 import (
 	"fmt"
 	"net/http"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
-
-	"github.com/LevGrekov/KFUScheduleGenie/utils"
 )
 
 func (c *Client) GetSchedule(employeeID int) (string, error) {
@@ -42,81 +42,183 @@ func formatTeacherSchedule(subjects []Subject) string {
 		return "Расписание не найдено"
 	}
 
-	// Получаем имя преподавателя из первого предмета
+	// Получаем имя преподавателя
 	teacher := subjects[0]
-	teacherName := fmt.Sprintf("%s %s.%s.",
+	teacherName := fmt.Sprintf("%s %s %s ",
 		teacher.TeacherLastname,
 		teacher.TeacherFirstname,
 		teacher.TeacherMiddlename)
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("📅 %s\n\n", teacherName))
+	sb.WriteString(fmt.Sprintf("📅 Расписание преподавателя: %s\n\n", teacherName))
 
-	// Группируем по дням недели
-	days := make(map[int][]Subject)
+	// Группируем по дням недели и времени
+	schedule := make(map[int]map[string][]Subject)
 	for _, subj := range subjects {
-		days[subj.DayWeekSchedule] = append(days[subj.DayWeekSchedule], subj)
+		if schedule[subj.DayWeekSchedule] == nil {
+			schedule[subj.DayWeekSchedule] = make(map[string][]Subject)
+		}
+		timeSlot := fmt.Sprintf("%s-%s", subj.BeginTimeSchedule, subj.EndTimeSchedule)
+		schedule[subj.DayWeekSchedule][timeSlot] = append(schedule[subj.DayWeekSchedule][timeSlot], subj)
 	}
 
-	// Выводим дни недели по порядку (1-7)
+	// Выводим дни недели по порядку
 	for day := 1; day <= 7; day++ {
-		if subs, ok := days[day]; ok {
-			sb.WriteString(fmt.Sprintf("📌 %s:\n", utils.WeekdayName(day)))
+		if timeSlots, ok := schedule[day]; ok {
+			sb.WriteString(fmt.Sprintf("📌 %s:\n", weekdayName(day)))
 
-			for _, subj := range subs {
-				// Форматируем информацию о предмете
+			// Сортируем временные слоты
+			var times []string
+			for time := range timeSlots {
+				times = append(times, time)
+			}
+			sort.Strings(times)
+
+			for _, time := range times {
+				subs := timeSlots[time]
+				if len(subs) == 0 {
+					continue
+				}
+
+				// Берем первый предмет из группы (они одинаковые по времени)
+				subj := subs[0]
+
+				// Формируем блоки информации
+				timeInfo := fmt.Sprintf("🕒 %s", time)
 				weekType := ""
 				if subj.TypeWeekSchedule == 1 {
-					weekType = " неч."
+					weekType = " (неч.)"
 				} else if subj.TypeWeekSchedule == 2 {
-					weekType = " чет."
+					weekType = " (чет.)"
 				}
+				period := formatPeriod(subj.StartDaySchedule, subj.FinishDaySchedule)
+				sb.WriteString(timeInfo + weekType + period + " ")
 
-				// Период проведения
-				period := ""
-				if subj.StartDaySchedule != "" && subj.FinishDaySchedule != "" {
-					startDate, err1 := time.Parse("2006-01-02", subj.StartDaySchedule)
-					endDate, err2 := time.Parse("2006-01-02", subj.FinishDaySchedule)
-					if err1 == nil && err2 == nil {
-						period = fmt.Sprintf(" (%s - %s)",
-							startDate.Format("02.01"),
-							endDate.Format("02.01"))
-					}
-				}
-
-				timeInfo := fmt.Sprintf("🕒 %s-%s%s%s",
-					subj.BeginTimeSchedule,
-					subj.EndTimeSchedule,
-					weekType,
-					period)
-				sb.WriteString(timeInfo + "\n")
-
-				subjectInfo := "📚 " + subj.SubjectName
+				// Название предмета
+				subjectInfo := fmt.Sprintf("📚 %s", subj.SubjectName)
 				if subj.SubjectKindName != "" {
 					subjectInfo += fmt.Sprintf(" (%s)", subj.SubjectKindName)
 				}
-				sb.WriteString(subjectInfo + "\n")
+				sb.WriteString(subjectInfo + " ")
 
-				if subj.GroupList != "" {
-					groupsInfo := fmt.Sprintf("👥 Группы: %s", subj.GroupList)
-					sb.WriteString(groupsInfo + "\n")
-				}
+				// Группы
+				groupsInfo := fmt.Sprintf("👥 %s", formatGroupList(subj.GroupList))
+				sb.WriteString(groupsInfo + " ;")
 
-				auditoryInfo := "🏫" + subj.BuildingName
-				if subj.NumAuditorium != "" {
-					auditoryInfo += fmt.Sprintf(", ауд. %s", subj.NumAuditorium)
+				// Аудитория (если указана)
+				auditoryInfo := formatAuditory(subj.BuildingName, subj.NumAuditorium)
+				if auditoryInfo != "" {
+					sb.WriteString(auditoryInfo + " ")
 				}
-				sb.WriteString(auditoryInfo + "\n")
 
 				if subj.NoteSchedule != "" {
 					noteInfo := fmt.Sprintf("📝 %s", subj.NoteSchedule)
-					sb.WriteString(noteInfo + "\n")
+					sb.WriteString(noteInfo + " ")
 				}
-
 				sb.WriteString("\n")
 			}
+			sb.WriteString("\n")
 		}
 	}
 
 	return sb.String()
+}
+
+func weekdayName(day int) string {
+	days := []string{"", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"}
+	if day >= 1 && day <= 7 {
+		return days[day]
+	}
+	return "Неизвестный день"
+}
+
+func formatPeriod(start, end string) string {
+	if start == "" || end == "" {
+		return ""
+	}
+	startDate, err1 := time.Parse("02.01.06", start)
+	endDate, err2 := time.Parse("02.01.06", end)
+	if err1 != nil || err2 != nil {
+		return ""
+	}
+	return fmt.Sprintf(" (%s-%s)", startDate.Format("02.01"), endDate.Format("02.01"))
+}
+
+func formatAuditory(building, room string) string {
+	result := building
+	if room != "" {
+		result += fmt.Sprintf(", ауд. %s", room)
+	}
+	return result
+}
+
+func formatGroupList(groups string) string {
+	if groups == "" {
+		return ""
+	}
+
+	// Разбиваем строку на отдельные группы
+	groupItems := strings.Split(groups, ", ")
+	if len(groupItems) == 0 {
+		return groups
+	}
+
+	// Сортируем группы для правильной обработки
+	sort.Strings(groupItems)
+
+	var result []string
+	var currentPrefix string
+	var startNum, prevNum int
+
+	for i, group := range groupItems {
+		// Разделяем префикс и номер (например "11" и "400")
+		parts := strings.Split(group, "-")
+		if len(parts) != 2 {
+			// Если группа не в формате "XX-XXX", оставляем как есть
+			result = append(result, group)
+			continue
+		}
+
+		prefix := parts[0]
+		num, err := strconv.Atoi(parts[1])
+		if err != nil {
+			result = append(result, group)
+			continue
+		}
+
+		if i == 0 {
+			// Первая группа в списке
+			currentPrefix = prefix
+			startNum = num
+			prevNum = num
+			continue
+		}
+
+		if prefix == currentPrefix && num == prevNum+1 {
+			// Продолжаем последовательность
+			prevNum = num
+		} else {
+			// Завершаем текущую последовательность
+			if startNum == prevNum {
+				result = append(result, fmt.Sprintf("%s-%d", currentPrefix, startNum))
+			} else {
+				result = append(result, fmt.Sprintf("%s-%d..%d", currentPrefix, startNum, prevNum))
+			}
+			// Начинаем новую последовательность
+			currentPrefix = prefix
+			startNum = num
+			prevNum = num
+		}
+	}
+
+	// Добавляем последнюю последовательность
+	if currentPrefix != "" {
+		if startNum == prevNum {
+			result = append(result, fmt.Sprintf("%s-%d", currentPrefix, startNum))
+		} else {
+			result = append(result, fmt.Sprintf("%s-%d..%d", currentPrefix, startNum, prevNum))
+		}
+	}
+
+	return strings.Join(result, ", ")
 }
